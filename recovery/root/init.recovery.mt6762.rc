@@ -1,0 +1,71 @@
+on fs
+    export ANDROID_ROOT /system_root
+    install_keyring
+
+on early-fs
+    start vold
+
+on init
+    start hwservicemanager
+    start servicemanager
+
+service hwservicemanager /system/bin/hwservicemanager
+    user root
+    group root
+    disabled
+    onrestart setprop hwservicemanager.ready false
+    seclabel u:r:recovery:s0
+
+service servicemanager /system/bin/servicemanager
+    user root
+    group root readproc
+    disabled
+    seclabel u:r:recovery:s0
+
+service keystore_auth /system/bin/keystore_auth
+    oneshot
+    user system
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+service keystore /system/bin/keystore /tmp/misc/keystore
+    user root
+    group root drmrpc readproc
+    disabled
+    seclabel u:r:recovery:s0
+
+service gatekeeper-1-0 /sbin/android.hardware.gatekeeper@1.0-service
+    user root
+    group root
+    disabled
+    seclabel u:r:recovery:s0
+
+service keymaster-3-0 /sbin/android.hardware.keymaster@3.0-service
+    user root
+    group root drmrpc
+    disabled
+    seclabel u:r:recovery:s0
+
+on property:hwservicemanager.ready=true
+    write /proc/bootprof "ready"
+    start keymaster-3-0
+    start gatekeeper-1-0
+
+on property:ro.crypto.state=unsupported
+    stop keymaster-3-0
+    stop gatekeeper-1-0
+    stop servicemanager
+    stop hwservicemanager
+
+on property:ro.crypto.state=unencrypted
+    stop keymaster-3-0
+    stop gatekeeper-1-0
+    stop servicemanager
+    stop hwservicemanager
+
+on property:twrp.decrypt.done=true
+    stop keymaster-3-0
+    stop gatekeeper-1-0
+    stop servicemanager
+    stop hwservicemanager
